@@ -1,0 +1,567 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f5f7;
+  --ink: #16181d;
+  --muted: #626b78;
+  --line: #d9dee7;
+  --panel: #ffffff;
+  --accent: #146c5f;
+  --accent-dark: #0e4f45;
+  --warn: #a54800;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 16px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:hover,
+.button-link:hover {
+  background: var(--accent-dark);
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+button.secondary {
+  background: #2d3541;
+}
+
+.button-link {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  padding: 0 16px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.button-link.secondary {
+  background: #2d3541;
+}
+
+.shell {
+  width: min(1040px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0;
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.eyebrow,
+.label {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.status-band,
+.results {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.status-band {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 220px;
+  align-items: stretch;
+}
+
+.status-band > div,
+.results > article,
+.log {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.status {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.status.compact {
+  font-size: 17px;
+}
+
+.mono,
+pre {
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.mono {
+  margin: 0;
+}
+
+.results {
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.1fr) minmax(200px, 0.7fr) minmax(250px, 0.8fr);
+}
+
+.results p {
+  margin-top: 0;
+}
+
+dl {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+
+dt {
+  color: var(--muted);
+}
+
+dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.log {
+  margin-top: 14px;
+}
+
+.live-led-section,
+.arduino-preview-section {
+  margin-top: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.virtual-mic-section {
+  margin-top: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.virtual-mic-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.virtual-mic-head h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.virtual-mic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.virtual-mic-actions select {
+  min-height: 42px;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.virtual-readback-toggle {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.virtual-readback-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.virtual-mic-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(260px, 1.1fr) minmax(220px, 0.8fr);
+  gap: 14px;
+}
+
+.virtual-mic-grid > div {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.virtual-mic-grid p {
+  margin-top: 0;
+}
+
+.virtual-raw {
+  margin-top: 14px;
+}
+
+.live-led-meta {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.live-led-meta p {
+  margin: 0;
+}
+
+pre {
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+}
+
+body[data-status="recording"] .status {
+  color: var(--warn);
+}
+
+body[data-status="done"] .status {
+  color: var(--accent);
+}
+
+body[data-live-status="recording_segment"] #liveStatusText,
+body[data-live-status="analyzing"] #liveStatusText {
+  color: var(--warn);
+}
+
+body[data-live-status="listening"] #liveStatusText {
+  color: var(--accent);
+}
+
+@media (max-width: 760px) {
+  .control,
+  .actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .status-band,
+  .results {
+    grid-template-columns: 1fr;
+  }
+}
+
+.serial-shell {
+  max-width: 1180px;
+}
+
+.serial-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(300px, 1.2fr);
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.serial-panel,
+.serial-preview-section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.serial-command {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 6px;
+  background: #151a22;
+  color: #dff8ee;
+  font-size: 20px;
+}
+
+.serial-help {
+  margin: 12px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.payload-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+  resize: vertical;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 16px;
+}
+
+.local-actions {
+  justify-content: start;
+  margin-top: 12px;
+}
+
+.poll-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.poll-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.simulator-status {
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) 180px;
+}
+
+.serial-controls {
+  display: grid;
+  gap: 18px;
+}
+
+.serial-slider {
+  display: grid;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.serial-slider span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.serial-slider input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.serial-preview-section {
+  margin-top: 14px;
+}
+
+.serial-preview-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.serial-preview-head h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.led-preview {
+  display: grid;
+  gap: 7px;
+  padding: 16px;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: #0f131a;
+}
+
+.led-line-preview {
+  grid-template-columns: repeat(12, minmax(18px, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.led-row {
+  display: grid;
+  grid-template-columns: repeat(24, 16px);
+  gap: 7px;
+  min-width: max-content;
+}
+
+.led-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #202632;
+  transition: background-color 80ms linear, box-shadow 80ms linear, opacity 80ms linear;
+}
+
+.led-line-dot {
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+  min-width: 18px;
+}
+
+.led-line-dot[data-side="left"] {
+  outline: 2px solid rgba(45, 160, 255, 0.45);
+}
+
+.led-line-dot[data-side="right"] {
+  outline: 2px solid rgba(255, 197, 71, 0.45);
+}
+
+.led-line-dot[data-side="both"] {
+  outline: 2px solid rgba(255, 255, 255, 0.56);
+}
+
+.arduino-preview {
+  --arduino-dot-size: 16px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: #0f131a;
+}
+
+.arduino-line {
+  display: grid;
+  grid-template-columns: 64px max-content;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  min-width: max-content;
+}
+
+.arduino-line-label {
+  display: grid;
+  gap: 2px;
+  color: #eef5f2;
+  line-height: 1.1;
+}
+
+.arduino-line-label strong {
+  font-size: 13px;
+}
+
+.arduino-line-label span {
+  color: #aeb8c5;
+  font-size: 11px;
+}
+
+.arduino-line-dots {
+  display: grid;
+  gap: 6px;
+  align-items: center;
+}
+
+.arduino-dot {
+  width: var(--arduino-dot-size);
+  height: var(--arduino-dot-size);
+}
+
+.arduino-dot[data-side="left"] {
+  outline: 1px solid rgba(45, 160, 255, 0.3);
+}
+
+.arduino-dot[data-side="right"] {
+  outline: 1px solid rgba(255, 197, 71, 0.3);
+}
+
+@media (max-width: 760px) {
+  .serial-layout,
+  .serial-preview-head,
+  .virtual-mic-head {
+    grid-template-columns: 1fr;
+  }
+
+  .serial-preview-head,
+  .virtual-mic-head {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .virtual-mic-actions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .virtual-mic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .live-led-meta {
+    justify-items: start;
+  }
+
+  .led-line-preview {
+    gap: 7px;
+  }
+
+  .arduino-line {
+    grid-template-columns: 54px max-content;
+  }
+
+  .arduino-line-dots {
+    gap: 4px;
+  }
+
+  .arduino-preview {
+    --arduino-dot-size: 9px;
+  }
+}

@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+venv311/
+.venv/
+.env
+.env.txt
+
+# Media Art Artifacts
+wav_archive/
+logs/
+web/e2e_latest.json
+*.wav
+*.mp3
+
+# macOS (맥북 시스템 파일)
+.DS_Store
+
+# Executables & Binaries
+ffmpeg.exe
+vc_redist.x64.exe
+*.exe
+*.dll
+
+# IDEs
+.vscode/
+.idea

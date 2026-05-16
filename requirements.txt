@@ -1,0 +1,10 @@
+sounddevice
+openai-whisper
+transformers
+librosa
+python-osc
+numpy
+soundfile
+python-dotenv
+google-genai
+openai

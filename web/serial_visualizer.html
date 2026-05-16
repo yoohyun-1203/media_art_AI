@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Innerworld Serial LED Visualizer</title>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body class="serial-page">
+    <main class="shell serial-shell">
+      <section class="control serial-header">
+        <div>
+          <p class="eyebrow">Innerworld</p>
+          <h1>Serial LED Visualizer</h1>
+        </div>
+        <div class="actions">
+          <button id="connectButton" type="button">Serial 연결</button>
+          <button id="sendButton" type="button" class="secondary">전송</button>
+          <button id="demoButton" type="button" class="secondary">Demo</button>
+        </div>
+      </section>
+
+      <section class="serial-layout" aria-label="Serial LED visualizer controls">
+        <article class="serial-panel">
+          <p class="label">Protocol</p>
+          <p id="serialStatus" class="status compact" aria-live="polite">시뮬레이션 모드</p>
+          <pre id="commandText" class="serial-command" aria-live="polite">v,0.000,0.000</pre>
+          <p class="serial-help">
+            Web Serial을 지원하는 브라우저에서는 연결 후 115200 text 형식으로 전송합니다.
+          </p>
+        </article>
+
+        <article class="serial-panel serial-controls">
+          <label class="serial-slider">
+            <span>Valence <strong id="valenceValue">0.000</strong></span>
+            <input id="valenceSlider" type="range" min="-1" max="1" step="0.01" value="0">
+          </label>
+          <label class="serial-slider">
+            <span>Arousal <strong id="arousalValue">0.000</strong></span>
+            <input id="arousalSlider" type="range" min="-1" max="1" step="0.01" value="0">
+          </label>
+        </article>
+      </section>
+
+      <section class="serial-preview-section">
+        <div class="serial-preview-head">
+          <div>
+            <p class="label">LED Preview</p>
+            <h2>12 lines x 24 dots</h2>
+          </div>
+          <p id="previewSummary" class="mono" aria-live="polite">active 12 / brightness 50%</p>
+        </div>
+        <div
+          id="ledPreview"
+          class="led-preview"
+          aria-label="12줄 24개 LED 미리보기"
+          aria-describedby="previewSummary"
+        ></div>
+      </section>
+
+      <section class="log">
+        <p class="label">Send Log</p>
+        <pre id="sendLog" aria-live="polite">아직 전송한 명령이 없습니다.</pre>
+      </section>
+    </main>
+    <script src="./serial_visualizer.js"></script>
+  </body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Innerworld Arduino Simulator</title>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <main class="shell serial-shell">
+      <section class="control">
+        <div>
+          <p class="eyebrow">Innerworld</p>
+          <h1>Arduino Simulator</h1>
+        </div>
+        <div class="actions">
+          <a class="button-link" href="./index.html">Voice Controller</a>
+          <a class="button-link secondary" href="./serial_visualizer.html">Serial Visualizer</a>
+        </div>
+      </section>
+
+      <section class="status-band simulator-status">
+        <div>
+          <p class="label">상태</p>
+          <p id="simStatus" class="status compact">시뮬레이터 대기 중</p>
+        </div>
+        <div>
+          <p class="label">최근 Payload</p>
+          <p id="latestPayload" class="mono">v,0.000,0.000</p>
+        </div>
+        <div>
+          <p class="label">수신 지연</p>
+          <p id="latencyText" class="mono">-</p>
+        </div>
+      </section>
+
+      <section class="serial-layout">
+        <article class="serial-panel">
+          <p class="label">Manual Input</p>
+          <textarea id="payloadInput" class="payload-input" rows="5">v,0.250,0.700</textarea>
+          <div class="actions local-actions">
+            <button id="applyPayloadButton" type="button">적용</button>
+            <button id="demoPayloadButton" type="button" class="secondary">Demo</button>
+          </div>
+          <label class="poll-toggle">
+            <input id="pollLatestToggle" type="checkbox">
+            <span>web/e2e_latest.json 자동 반영</span>
+          </label>
+          <p class="serial-help">E2E CLI를 `--web-latest`로 실행하면 최신 리포트의 마지막 payload를 이 화면에서 폴링할 수 있습니다.</p>
+        </article>
+
+        <article class="serial-preview-section">
+          <div class="serial-preview-head">
+            <div>
+              <p class="label">Virtual LED</p>
+              <h2 id="previewSummary">가상 LED 대기 중</h2>
+            </div>
+            <p id="valueSummary" class="mono">valence 0.000 / arousal 0.000</p>
+          </div>
+          <div id="simLedPreview" class="led-preview"></div>
+        </article>
+      </section>
+
+      <section class="log">
+        <p class="label">Event Log</p>
+        <pre id="simLog">아직 수신한 payload가 없습니다.</pre>
+      </section>
+    </main>
+
+    <script src="./arduino_simulator.js"></script>
+  </body>
+</html>

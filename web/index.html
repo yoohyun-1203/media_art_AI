@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Innerworld Voice Controller</title>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="control">
+        <div>
+          <p class="eyebrow">Innerworld</p>
+          <h1>Voice Controller</h1>
+        </div>
+        <div class="actions">
+          <button id="liveStartButton" type="button">실시간 시작</button>
+          <button id="liveStopButton" type="button" class="secondary">실시간 정지</button>
+          <button id="startButton" type="button" class="secondary">단발 음성 분석</button>
+          <button id="testButton" type="button" class="secondary">OSC 테스트</button>
+          <a class="button-link secondary" href="./arduino_simulator.html">Arduino Simulator</a>
+        </div>
+      </section>
+
+      <section class="status-band">
+        <div>
+          <p class="label">상태</p>
+          <p id="statusText" class="status">대기 중</p>
+        </div>
+        <div>
+          <p class="label">실시간</p>
+          <p id="liveStatusText" class="status compact">실시간 대기 중</p>
+        </div>
+        <div>
+          <p class="label">OSC</p>
+          <p id="oscText" class="mono">127.0.0.1:5000</p>
+        </div>
+      </section>
+
+      <section class="results">
+        <article>
+          <p class="label">Live Signal</p>
+          <dl>
+            <div><dt>Arousal Live</dt><dd id="liveArousal">-</dd></div>
+            <div><dt>Arousal Confidence</dt><dd id="arousalConfidence">-</dd></div>
+            <div><dt>Valence Confidence</dt><dd id="valenceConfidence">-</dd></div>
+          </dl>
+        </article>
+        <article>
+          <p class="label">Transcript</p>
+          <p id="transcript">아직 분석 결과가 없습니다.</p>
+        </article>
+        <article>
+          <p class="label">Emotion</p>
+          <p id="emotion">-</p>
+        </article>
+        <article>
+          <p class="label">TouchDesigner Values</p>
+          <dl>
+            <div><dt>Valence</dt><dd id="valence">-</dd></div>
+            <div><dt>Arousal</dt><dd id="arousal">-</dd></div>
+            <div><dt>RGB</dt><dd id="rgb">-</dd></div>
+          </dl>
+        </article>
+      </section>
+
+      <section class="live-led-section">
+        <div class="serial-preview-head">
+          <div>
+            <p class="label">Live LED Preview</p>
+            <h2 id="controllerPreviewSummary">L 7/12 · R 7/12 · brightness 60%/60%</h2>
+          </div>
+          <div class="live-led-meta">
+            <p id="controllerValueSummary" class="mono">valence 0.000 / left 0.000 / right 0.000</p>
+            <p id="controllerPayload" class="mono">L v,0.000,0.000 · R v,0.000,0.000</p>
+          </div>
+        </div>
+        <div id="controllerLedPreview" class="led-preview led-line-preview" aria-label="Live LED preview"></div>
+      </section>
+
+      <section class="arduino-preview-section">
+        <div class="serial-preview-head">
+          <div>
+            <p class="label">Arduino Hardware Preview</p>
+            <h2 id="arduinoPreviewSummary">D2-D13 12 lines / sent 24 LEDs</h2>
+          </div>
+          <div class="live-led-meta">
+            <p id="arduinoPayload" class="mono">v,0.000,0.000 / L v,0.000,0.000 / R v,0.000,0.000</p>
+            <p id="arduinoTransform" class="mono">pleasantness 50% / energy 50% / intensity 30%</p>
+          </div>
+        </div>
+        <div id="arduinoHardwarePreview" class="arduino-preview" aria-label="Arduino hardware LED preview"></div>
+      </section>
+
+      <section class="virtual-mic-section" data-testid="virtual-mic-test">
+        <div class="virtual-mic-head">
+          <div>
+            <p class="label">Virtual Mic Test</p>
+            <h2>Left / Right Scenario</h2>
+          </div>
+          <div class="virtual-mic-actions">
+            <select id="virtualScenarioSelect" aria-label="Virtual mic scenario"></select>
+            <label class="virtual-readback-toggle">
+              <input id="virtualReadbackToggle" type="checkbox">
+              <span>TD readback</span>
+            </label>
+            <button id="virtualRunButton" type="button">Run</button>
+          </div>
+        </div>
+        <div class="virtual-mic-grid">
+          <div>
+            <p class="label">Status</p>
+            <p id="virtualStatusText" class="status compact">Virtual mic ready</p>
+          </div>
+          <div>
+            <p class="label">Expected</p>
+            <p id="virtualExpectedText">-</p>
+          </div>
+          <div>
+            <p class="label">Signals</p>
+            <p id="virtualSignalText" class="mono">left - / right - / valence -</p>
+          </div>
+        </div>
+        <pre id="virtualRaw" class="virtual-raw">{}</pre>
+      </section>
+
+      <section class="log">
+        <p class="label">Raw Result</p>
+        <pre id="raw">{}</pre>
+      </section>
+    </main>
+    <script src="./led_preview_model.js?v=linear-bidirectional-preview"></script>
+    <script src="./app.js?v=linear-bidirectional-preview"></script>
+  </body>
+</html>
