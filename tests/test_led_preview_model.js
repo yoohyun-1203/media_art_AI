@@ -7,6 +7,7 @@ const {
   arduinoMoodFromPayload,
   buildArduinoHardwareModel,
   buildLedModel,
+  colorForMood,
   parsePayload,
   payloadFromLiveState,
 } = require("../web/led_preview_model.js");
@@ -123,11 +124,19 @@ function testArduinoHardwareModelUsesUnoLineGeometry() {
   assert.equal(model.mood.intensity, 70);
 }
 
+function testColorForMoodMatchesTouchDesignerQuadrants() {
+  assert.match(colorForMood(-0.7, 0.7, 0.8), /^hsl\(0\.0 /);
+  assert.match(colorForMood(0.7, 0.7, 0.8), /^hsl\(48\.0 /);
+  assert.match(colorForMood(-0.7, -0.7, 0.8), /^hsl\(212\.0 /);
+  assert.match(colorForMood(0.7, -0.7, 0.8), /^hsl\(132\.0 /);
+}
+
 testParsePayloadClampsAndFormats();
 testBuildLedModelMapsBidirectionalArousalToLinearLeds();
 testPayloadFromLiveStateUsesFastArousalAndLatestValence();
 testPayloadFromLiveStateFallsBackToCommonArousalForBothSides();
 testArduinoMoodTransformMatchesSketchMath();
 testArduinoHardwareModelUsesUnoLineGeometry();
+testColorForMoodMatchesTouchDesignerQuadrants();
 
 console.log("test_led_preview_model.js passed");

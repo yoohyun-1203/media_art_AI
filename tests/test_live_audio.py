@@ -22,6 +22,8 @@ class LiveAudioFeatureTests(unittest.TestCase):
         self.assertLess(result["arousal_live"], -0.8)
         self.assertLess(result["arousal_confidence"], 0.05)
         self.assertEqual(result["rms"], 0.0)
+        self.assertEqual(result["valence_live"], 0.0)
+        self.assertLess(result["valence_live_confidence"], 0.05)
 
     def test_loud_signal_has_higher_arousal_and_confidence_than_silence(self):
         silence = np.zeros((1024, 1), dtype=np.int16)
@@ -34,6 +36,48 @@ class LiveAudioFeatureTests(unittest.TestCase):
         self.assertGreater(loud_result["arousal_confidence"], 0.5)
         self.assertGreaterEqual(loud_result["arousal_live"], -1.0)
         self.assertLessEqual(loud_result["arousal_live"], 1.0)
+        self.assertGreater(loud_result["valence_live_confidence"], 0.5)
+
+    def test_live_valence_is_available_without_stt_or_ai(self):
+        bright_tone = (np.sin(np.linspace(0, np.pi * 64, 1024)) * 12000).astype(np.int16)
+
+        result = main.compute_live_audio_features(bright_tone.reshape(-1, 1), rate=16000)
+
+        self.assertIn("valence_live", result)
+        self.assertIn("valence_live_confidence", result)
+        self.assertGreaterEqual(result["valence_live"], -1.0)
+        self.assertLessEqual(result["valence_live"], 1.0)
+
+    def test_live_arousal_rewards_bright_steady_tone(self):
+        dark_tone = (np.sin(np.linspace(0, np.pi * 8, 1024)) * 6000).astype(np.int16)
+        bright_tone = (np.sin(np.linspace(0, np.pi * 96, 1024)) * 6000).astype(np.int16)
+
+        dark_result = main.compute_live_audio_features(dark_tone.reshape(-1, 1), rate=16000)
+        bright_result = main.compute_live_audio_features(bright_tone.reshape(-1, 1), rate=16000)
+
+        self.assertGreater(bright_result["spectral_centroid"], dark_result["spectral_centroid"])
+        self.assertGreater(bright_result["high_band_ratio"], dark_result["high_band_ratio"])
+        self.assertGreater(bright_result["arousal_live"], dark_result["arousal_live"])
+        self.assertGreater(bright_result["arousal_live"], 0.0)
+
+    def test_steady_bright_pitch_still_counts_as_active(self):
+        steady_bright = main.score_arousal_from_metrics(
+            mean_rms=0.08,
+            mean_pitch=260.0,
+            std_pitch=2.0,
+            mean_zcr=0.08,
+            mean_centroid=2200.0,
+        )
+        dull_low_energy = main.score_arousal_from_metrics(
+            mean_rms=0.03,
+            mean_pitch=120.0,
+            std_pitch=2.0,
+            mean_zcr=0.03,
+            mean_centroid=900.0,
+        )
+
+        self.assertGreater(steady_bright, dull_low_energy)
+        self.assertGreater(steady_bright, 0.0)
 
     def test_tiny_int16_noise_is_still_treated_as_quiet(self):
         samples = np.ones((1024, 1), dtype=np.int16)

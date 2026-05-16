@@ -64,9 +64,21 @@
     };
   }
 
-  function colorForValence(valence, brightness) {
-    const hue = 212 - ((valence + 1) / 2) * 170;
-    const saturation = 68 + Math.abs(valence) * 20;
+  function colorForMood(valence, arousal, brightness) {
+    // Match the backend / TouchDesigner quadrant mapping:
+    // negative+high = red, positive+high = yellow,
+    // negative+low = blue, positive+low = green.
+    let hue;
+    if (valence < 0 && arousal >= 0) {
+      hue = 0;
+    } else if (valence >= 0 && arousal >= 0) {
+      hue = 48;
+    } else if (valence < 0 && arousal < 0) {
+      hue = 212;
+    } else {
+      hue = 132;
+    }
+    const saturation = 70 + Math.max(Math.abs(valence), Math.abs(arousal)) * 18;
     const lightness = 17 + brightness * 45;
     return `hsl(${hue.toFixed(1)} ${saturation.toFixed(1)}% ${lightness.toFixed(1)}%)`;
   }
@@ -288,7 +300,7 @@
         local = easePercent(local);
 
         const brightness = clamp((local / 100) * brightnessScale, 0, 1);
-        const color = colorForValence(parsed.valence, brightness);
+        const color = colorForMood(parsed.valence, parsed.arousal, brightness);
         dots.push({
           index: dotIndex,
           active: local > 6,
@@ -383,7 +395,14 @@
         rightActive ? rightBrightness : 0,
       );
       const localBrightness = sourceBrightness * (0.8 + (index % 2) * 0.08);
-      const color = colorForValence(valence, localBrightness);
+      const sourceArousal = leftActive && rightActive
+        ? Math.max(leftArousal, rightArousal)
+        : leftActive
+          ? leftArousal
+          : rightActive
+            ? rightArousal
+            : (leftArousal + rightArousal) / 2;
+      const color = colorForMood(valence, sourceArousal, localBrightness);
       leds.push({
         index,
         active,
@@ -492,7 +511,7 @@
     arduinoMoodFromPayload,
     buildArduinoHardwareModel,
     buildLedModel,
-    colorForValence,
+    colorForMood,
     fmt,
     intensityFromValenceArousal,
     parsePayload,

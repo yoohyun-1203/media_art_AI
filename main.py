@@ -133,8 +133,34 @@ def record_audio():
         return filepath
     return None
 
+def score_arousal_from_metrics(mean_rms, mean_pitch, std_pitch, mean_zcr, mean_centroid):
+    """Score arousal from complementary voice cues.
+
+    A lively voice can stay on one bright pitch for a whole phrase.  If we only
+    reward pitch *variation*, that voice is unfairly treated as calm.  We keep
+    variation as one cue, but also reward sustained pitch height, energy, and
+    spectral brightness so a consistently vivid tone still reads as active.
+    """
+    norm_rms = min(float(mean_rms) / 0.1, 1.0)
+    norm_pitch_level = min(float(mean_pitch) / 280.0, 1.0)
+    norm_pitch_std = min(float(std_pitch) / 65.0, 1.0)
+    norm_zcr = min(float(mean_zcr) / 0.15, 1.0)
+    norm_centroid = min(float(mean_centroid) / 3000.0, 1.0)
+
+    # 에너지를 가장 크게 두되, "밝지만 일정한 목소리"도 놓치지 않도록
+    # 절대 피치 높이를 별도 축으로 추가합니다.
+    arousal_raw = (
+        (norm_rms * 0.35)
+        + (norm_pitch_level * 0.20)
+        + (norm_pitch_std * 0.15)
+        + (norm_zcr * 0.15)
+        + (norm_centroid * 0.15)
+    )
+    return clamp((arousal_raw * 2.0) - 1.0)
+
+
 def analyze_arousal(filepath):
-    """librosa를 사용하여 어투(Pitch 변화량, RMS 에너지) 기반 Arousal 분석"""
+    """librosa를 사용하여 어투 기반 Arousal을 분석합니다."""
     try:
         y, sr = librosa.load(filepath, sr=16000)
         
@@ -151,8 +177,10 @@ def analyze_arousal(filepath):
         f0 = f0[voiced_flag] # 음성이 있는 부분만 추출
         
         if len(f0) > 0:
+            mean_pitch = np.mean(f0)
             std_pitch = np.std(f0)
         else:
+            mean_pitch = 0
             std_pitch = 0
             
         # 3. 추가 특징: Zero Crossing Rate (발화의 선명도/속도)
@@ -163,21 +191,22 @@ def analyze_arousal(filepath):
         centroid = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
         mean_centroid = np.mean(centroid)
             
-        # 5. Arousal 계산 (멀티모달 휴리스틱 매핑)
-        # 에너지, 피치 변화량, 발화 속도(ZCR), 밝기(Centroid) 종합
-        norm_rms = min(mean_rms / 0.1, 1.0)
-        norm_pitch_std = min(std_pitch / 65.0, 1.0)
-        norm_zcr = min(mean_zcr / 0.15, 1.0)
-        norm_centroid = min(mean_centroid / 3000.0, 1.0)
+        # 5. Arousal 계산
+        # 변화량만 보지 않고, 지속적으로 높은 톤도 활력으로 인정합니다.
+        arousal = score_arousal_from_metrics(
+            mean_rms=mean_rms,
+            mean_pitch=mean_pitch,
+            std_pitch=std_pitch,
+            mean_zcr=mean_zcr,
+            mean_centroid=mean_centroid,
+        )
         
-        # 가중치: RMS(40%), Pitch(30%), ZCR(15%), Centroid(15%)
-        arousal_raw = (norm_rms * 0.4) + (norm_pitch_std * 0.3) + (norm_zcr * 0.15) + (norm_centroid * 0.15)
-        
-        # -1.0 ~ 1.0 범위로 매핑
-        arousal = (arousal_raw * 2.0) - 1.0
-        arousal = max(min(arousal, 1.0), -1.0)
-        
-        print(f"[어투 분석] 에너지: {mean_rms:.3f}, 피치변화: {std_pitch:.1f}Hz, ZCR: {mean_zcr:.3f}, 밝기: {mean_centroid:.0f}Hz -> Arousal: {arousal:.2f}")
+        print(
+            "[어투 분석] "
+            f"에너지: {mean_rms:.3f}, 평균피치: {mean_pitch:.1f}Hz, "
+            f"피치변화: {std_pitch:.1f}Hz, ZCR: {mean_zcr:.3f}, "
+            f"밝기: {mean_centroid:.0f}Hz -> Arousal: {arousal:.2f}"
+        )
         return arousal
     except Exception as e:
         print(f"어투 분석 중 오류 발생: {e}")
@@ -224,6 +253,11 @@ def _as_mono_float_audio(data):
 
 
 def compute_live_audio_features(data, rate=RATE):
+    """Return ultra-low-latency control features for live lighting.
+
+    This path intentionally avoids STT and cloud AI. It is the path that must
+    stay fast enough to drive lighting while the audience is still speaking.
+    """
     samples = _as_mono_float_audio(data)
     if samples.size == 0:
         samples = np.zeros(1, dtype=np.float32)
@@ -239,22 +273,61 @@ def compute_live_audio_features(data, rate=RATE):
     if float(np.sum(magnitude)) > 0.0:
         freqs = np.fft.rfftfreq(samples.size, d=1.0 / float(rate))
         spectral_centroid = float(np.sum(freqs * magnitude) / np.sum(magnitude))
+        # High-frequency ratio is a cheap real-time proxy for a voice that feels
+        # bright / forward without paying the latency cost of pitch tracking.
+        high_band_energy = float(np.sum(magnitude[freqs >= 1200.0]))
+        total_energy = float(np.sum(magnitude))
+        high_band_ratio = high_band_energy / total_energy if total_energy > 0.0 else 0.0
     else:
         spectral_centroid = 0.0
+        high_band_ratio = 0.0
 
     norm_energy = clamp(rms / 0.08, 0.0, 1.0)
     norm_zcr = clamp(zcr / 0.15, 0.0, 1.0)
     norm_centroid = clamp(spectral_centroid / 3000.0, 0.0, 1.0)
-    arousal_raw = (norm_energy * 0.6) + (norm_zcr * 0.2) + (norm_centroid * 0.2)
-    arousal_live = clamp((arousal_raw * 2.0) - 1.0)
+    norm_high_band = clamp(high_band_ratio / 0.35, 0.0, 1.0)
+
+    # Live lighting should react to more than loudness.  Keeping this path cheap,
+    # we blend size (energy) with timbral "lift" (centroid + high band content)
+    # so a steady but bright voice no longer looks falsely subdued.
     arousal_confidence = clamp((rms - 0.01) / 0.08, 0.0, 1.0)
+    arousal_raw = (
+        (norm_energy * 0.35)
+        + (norm_zcr * 0.15)
+        + (norm_centroid * 0.25)
+        + (norm_high_band * 0.25)
+    )
+
+    # Lighting uses arousal as a "how alive does this feel right now?" control.
+    # Once we are confident that speech exists, a vivid steady tone should cross
+    # into positive territory even when it is not especially loud.  Silence is
+    # still pinned low so the room can visibly wake up when a person speaks.
+    if arousal_confidence < 0.1:
+        arousal_live = -1.0
+    else:
+        arousal_live = clamp((arousal_raw - 0.28) / 0.42)
+
+    # "Live valence" is not semantic sentiment. It is an immediate timbre-based
+    # lighting estimate so the artwork can choose a color before STT/LLM results
+    # exist. Brighter / clearer speech leans warm-positive; noisier, harsher
+    # speech leans cool-negative. Silence stays neutral.
+    brightness_bias = clamp((spectral_centroid - 900.0) / 2100.0, 0.0, 1.0)
+    noisiness_bias = clamp(zcr / 0.20, 0.0, 1.0)
+    valence_raw = (brightness_bias * 0.65) - (noisiness_bias * 0.35)
+    valence_live = clamp((valence_raw * 2.0) - 0.35)
+    valence_live_confidence = arousal_confidence
+    if arousal_confidence < 0.1:
+        valence_live = 0.0
 
     return {
         "arousal_live": arousal_live,
         "arousal_confidence": arousal_confidence,
+        "valence_live": valence_live,
+        "valence_live_confidence": valence_live_confidence,
         "rms": rms,
         "zcr": zcr,
         "spectral_centroid": spectral_centroid,
+        "high_band_ratio": high_band_ratio,
     }
 
 

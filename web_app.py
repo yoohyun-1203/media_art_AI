@@ -297,6 +297,9 @@ def analyze_live_segment(filepath):
                 result.get("valence", 0.0),
             )
             result["valence_confidence"] = valence_confidence
+            # This is the slow correction layer. Live lighting has already been
+            # driven by per-chunk local features while the person was speaking;
+            # semantic analysis only refines the color after the phrase ends.
             backend.send_live_osc(
                 valence_target=float(result.get("td_valence", result.get("valence", 0.0))),
                 valence_confidence=valence_confidence,
@@ -364,9 +367,15 @@ def live_worker():
             data, overflowed = stream.read(backend.CHUNK)
             now = time.time()
             features = backend.compute_live_audio_features(data, rate=backend.RATE)
+
+            # 전시 중 조명은 기다리면 안 됩니다.
+            # STT/Gemini를 전혀 거치지 않고, 현재 오디오 청크에서 바로 계산한
+            # 제어 신호를 보내 색과 에너지가 즉시 반응하게 합니다.
             backend.send_live_osc(
                 arousal_live=features["arousal_live"],
                 arousal_confidence=features["arousal_confidence"],
+                valence_target=features["valence_live"],
+                valence_confidence=features["valence_live_confidence"],
             )
 
             latest = {
