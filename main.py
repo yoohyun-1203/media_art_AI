@@ -56,7 +56,9 @@ if sys.platform == "win32":
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', line_buffering=True)
 
 # 오디오 설정
-DEVICE = 0  # 마이크 디바이스 번호 (0번)
+DEVICE = int(os.getenv("MIC_DEVICE", "0"))  # legacy single-mic fallback
+LEFT_MIC_DEVICE = int(os.getenv("LEFT_MIC_DEVICE", str(DEVICE)))
+RIGHT_MIC_DEVICE = int(os.getenv("RIGHT_MIC_DEVICE", str(DEVICE)))
 CHANNELS = 1
 RATE = 16000
 CHUNK = 1024
@@ -349,10 +351,26 @@ def send_live_osc(
     arousal_confidence=None,
     valence_target=None,
     valence_confidence=None,
+    left_arousal_live=None,
+    right_arousal_live=None,
+    left_arousal_confidence=None,
+    right_arousal_confidence=None,
+    left_valence_target=None,
+    right_valence_target=None,
+    left_valence_confidence=None,
+    right_valence_confidence=None,
     text_partial=None,
     text_final=None,
 ):
     values = {
+        "/emotion/left_arousal_live": left_arousal_live,
+        "/emotion/right_arousal_live": right_arousal_live,
+        "/emotion/left_arousal_confidence": left_arousal_confidence,
+        "/emotion/right_arousal_confidence": right_arousal_confidence,
+        "/emotion/left_valence_target": left_valence_target,
+        "/emotion/right_valence_target": right_valence_target,
+        "/emotion/left_valence_confidence": left_valence_confidence,
+        "/emotion/right_valence_confidence": right_valence_confidence,
         "/emotion/arousal_live": arousal_live,
         "/emotion/arousal_confidence": arousal_confidence,
         "/emotion/valence_target": valence_target,
@@ -479,10 +497,11 @@ def analyze_text_result(text, audio_arousal=0.0, send_osc=True):
     return result
 
 
-def process_audio_result(filepath, send_osc=True):
+def process_audio_result(filepath, send_osc=True, source_label=None):
     """녹음 파일을 STT/감정 분석한 뒤 웹 UI가 표시할 수 있는 결과 dict를 반환합니다."""
     absolute_path = os.path.abspath(filepath) # 절대 경로 (에러 방지)
-    print(f"\n[1/3] 음성 인식(STT) 진행 중... (파일: {absolute_path})")
+    label_prefix = f"[{source_label}] " if source_label else ""
+    print(f"\n{label_prefix}[1/3] 음성 인식(STT) 진행 중... (파일: {absolute_path})")
     
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as arousal_executor:
@@ -517,10 +536,10 @@ def process_audio_result(filepath, send_osc=True):
         td_arousal = result["td_arousal"]
 
         # 결과 요약 출력
-        print(f"\n==================================================")
-        print(f"🗣️ 인식된 말: {transcript}")
-        print(f"🤖 최종 감정단어: {emotion_word} -> 🎨 매핑 색상: {color_name}")
-        print(f"📊 터치디자이너 전송 수치 - Valence: {td_valence}, Arousal: {td_arousal}")
+        print(f"\n{label_prefix}==================================================")
+        print(f"{label_prefix}🗣️ 인식된 말: {transcript}")
+        print(f"{label_prefix}🤖 최종 감정단어: {emotion_word} -> 🎨 매핑 색상: {color_name}")
+        print(f"{label_prefix}📊 터치디자이너 전송 수치 - Valence: {td_valence}, Arousal: {td_arousal}")
         print(f"==================================================")
 
         # 5. OSC 전송

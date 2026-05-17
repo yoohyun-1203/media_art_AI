@@ -272,12 +272,13 @@ def send_composed_live_signal(
     return signal
 
 
-def save_live_segment(frames):
+def save_live_segment(frames, side=None):
     if not frames:
         return None
     os.makedirs(backend.ARCHIVE_DIR, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    filepath = os.path.join(backend.ARCHIVE_DIR, f"live_{timestamp}.wav")
+    prefix = f"live_{side}_" if side else "live_"
+    filepath = os.path.join(backend.ARCHIVE_DIR, f"{prefix}{timestamp}.wav")
     audio_data = np.concatenate(frames, axis=0)
     with wave.open(filepath, "wb") as wav_file:
         wav_file.setnchannels(backend.CHANNELS)
@@ -287,10 +288,35 @@ def save_live_segment(frames):
     return filepath
 
 
-def analyze_live_segment(filepath):
+def _merge_side_result(side, result):
+    current = get_live().get("result") or {}
+    merged = {
+        "left": current.get("left"),
+        "right": current.get("right"),
+    }
+    merged[side] = result
+    return merged
+
+
+def side_owns_current_voice(side, own_features, other_features, margin=0.18):
+    """Keep one nearby speaker from being claimed by both microphones.
+
+    This is a fast dominance gate, not magical acoustic isolation: if one mic is
+    clearly louder/more confident than the other, only that side owns the phrase.
+    If both sides are genuinely active at similar strength, both may continue.
+    """
+    own = float(own_features.get("arousal_confidence", 0.0))
+    other = float(other_features.get("arousal_confidence", 0.0))
+    if own <= 0.0:
+        return False
+    return own >= other or (other - own) < margin
+
+
+def analyze_live_segment(filepath, side):
     try:
-        set_live(status="analyzing", message="문장 끝을 감지했습니다. valence를 갱신하는 중입니다.")
-        result = backend.process_audio_result(filepath, send_osc=True)
+        set_live(status="analyzing", message=f"{side} 문장 끝을 감지했습니다. valence를 갱신하는 중입니다.")
+        result = backend.process_audio_result(filepath, send_osc=False, source_label=side.upper())
+        result["side"] = side
         if result.get("ok"):
             valence_confidence = backend.estimate_valence_confidence(
                 result.get("transcript", ""),
@@ -300,30 +326,40 @@ def analyze_live_segment(filepath):
             # This is the slow correction layer. Live lighting has already been
             # driven by per-chunk local features while the person was speaking;
             # semantic analysis only refines the color after the phrase ends.
-            backend.send_live_osc(
-                valence_target=float(result.get("td_valence", result.get("valence", 0.0))),
-                valence_confidence=valence_confidence,
-                text_final=result.get("transcript", ""),
-            )
+            final_valence = float(result.get("td_valence", result.get("valence", 0.0)))
+            if side == "left":
+                backend.send_live_osc(
+                    left_valence_target=final_valence,
+                    left_valence_confidence=valence_confidence,
+                    text_final=result.get("transcript", ""),
+                )
+            else:
+                backend.send_live_osc(
+                    right_valence_target=final_valence,
+                    right_valence_confidence=valence_confidence,
+                    text_final=result.get("transcript", ""),
+                )
             try:
                 backend.manage_archive_limit(backend.ARCHIVE_DIR, max_files=20)
             except Exception:
                 pass
             result["touchdesigner"] = read_touchdesigner_state()
+            merged_result = _merge_side_result(side, result)
             if get_live().get("running"):
                 set_live(
                     status="listening",
-                    message="valence 갱신 완료. 계속 듣는 중입니다.",
-                    result=result,
+                    message=f"{side} valence 갱신 완료. 계속 듣는 중입니다.",
+                    result=merged_result,
                     error=None,
                 )
             else:
-                set_live(status="stopped", message="실시간 정지됨", result=result, error=None)
+                set_live(status="stopped", message="실시간 정지됨", result=merged_result, error=None)
         else:
+            merged_result = _merge_side_result(side, result)
             set_live(
                 status="listening" if get_live().get("running") else "stopped",
-                message="마지막 구간 분석에 실패했습니다. 계속 들을 수 있습니다.",
-                result=result,
+                message=f"{side} 마지막 구간 분석에 실패했습니다. 계속 들을 수 있습니다.",
+                result=merged_result,
                 error=result.get("error", "analysis_failed"),
             )
     except Exception as exc:
@@ -336,10 +372,10 @@ def analyze_live_segment(filepath):
 
 
 def live_worker():
-    frames = []
-    recording = False
-    silence_start_time = None
-    pending_analysis = None
+    side_state = {
+        "left": {"frames": [], "recording": False, "silence_start_time": None, "pending": None},
+        "right": {"frames": [], "recording": False, "silence_start_time": None, "pending": None},
+    }
 
     set_live(
         running=True,
@@ -350,71 +386,124 @@ def live_worker():
         error=None,
     )
 
-    analysis_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    stream = None
+    analysis_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+    left_stream = None
+    right_stream = None
 
     try:
-        stream = backend.sd.InputStream(
-            device=backend.DEVICE,
+        left_stream = backend.sd.InputStream(
+            device=backend.LEFT_MIC_DEVICE,
             samplerate=backend.RATE,
             channels=backend.CHANNELS,
             dtype="int16",
             blocksize=backend.CHUNK,
         )
-        stream.start()
+        right_stream = backend.sd.InputStream(
+            device=backend.RIGHT_MIC_DEVICE,
+            samplerate=backend.RATE,
+            channels=backend.CHANNELS,
+            dtype="int16",
+            blocksize=backend.CHUNK,
+        )
+        left_stream.start()
+        right_stream.start()
+
+        # 두 마이크 read를 같은 순간에 시작하도록 병렬 executor를 둡니다.
+        # 한쪽 read가 끝날 때까지 다른 쪽이 기다리면, 좌우 반응이 미세하게라도
+        # 어긋날 수 있으므로 조명 제어 경로에서는 둘을 함께 가져옵니다.
+        mic_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
 
         while not live_stop_event.is_set():
-            data, overflowed = stream.read(backend.CHUNK)
+            left_future = mic_executor.submit(left_stream.read, backend.CHUNK)
+            right_future = mic_executor.submit(right_stream.read, backend.CHUNK)
+            left_data, left_overflowed = left_future.result()
+            right_data, right_overflowed = right_future.result()
             now = time.time()
-            features = backend.compute_live_audio_features(data, rate=backend.RATE)
+            left_features = backend.compute_live_audio_features(left_data, rate=backend.RATE)
+            right_features = backend.compute_live_audio_features(right_data, rate=backend.RATE)
+
+            # legacy /emotion/* 채널은 기존 TouchDesigner 네트워크를 깨지 않기 위한
+            # 호환 레이어입니다. 더 강한 쪽을 대표값으로 미러링합니다.
+            if left_features["arousal_confidence"] >= right_features["arousal_confidence"]:
+                mirror_features = left_features
+            else:
+                mirror_features = right_features
 
             # 전시 중 조명은 기다리면 안 됩니다.
             # STT/Gemini를 전혀 거치지 않고, 현재 오디오 청크에서 바로 계산한
-            # 제어 신호를 보내 색과 에너지가 즉시 반응하게 합니다.
+            # 좌/우 제어 신호를 각각 보내 색과 에너지가 즉시 반응하게 합니다.
             backend.send_live_osc(
-                arousal_live=features["arousal_live"],
-                arousal_confidence=features["arousal_confidence"],
-                valence_target=features["valence_live"],
-                valence_confidence=features["valence_live_confidence"],
+                left_arousal_live=left_features["arousal_live"],
+                right_arousal_live=right_features["arousal_live"],
+                left_arousal_confidence=left_features["arousal_confidence"],
+                right_arousal_confidence=right_features["arousal_confidence"],
+                left_valence_target=left_features["valence_live"],
+                right_valence_target=right_features["valence_live"],
+                left_valence_confidence=left_features["valence_live_confidence"],
+                right_valence_confidence=right_features["valence_live_confidence"],
+                arousal_live=mirror_features["arousal_live"],
+                arousal_confidence=mirror_features["arousal_confidence"],
+                valence_target=mirror_features["valence_live"],
+                valence_confidence=mirror_features["valence_live_confidence"],
             )
 
             latest = {
-                **features,
+                "left_arousal_live": left_features["arousal_live"],
+                "right_arousal_live": right_features["arousal_live"],
+                "left_arousal_confidence": left_features["arousal_confidence"],
+                "right_arousal_confidence": right_features["arousal_confidence"],
+                "left_valence_target": left_features["valence_live"],
+                "right_valence_target": right_features["valence_live"],
+                "left_valence_confidence": left_features["valence_live_confidence"],
+                "right_valence_confidence": right_features["valence_live_confidence"],
+                "arousal_live": mirror_features["arousal_live"],
+                "arousal_confidence": mirror_features["arousal_confidence"],
+                "valence_target": mirror_features["valence_live"],
+                "valence_confidence": mirror_features["valence_live_confidence"],
                 "timestamp": now,
-                "overflowed": bool(overflowed),
+                "left_overflowed": bool(left_overflowed),
+                "right_overflowed": bool(right_overflowed),
             }
             set_live(
                 latest=latest,
-                status="recording_segment" if recording else "listening",
-                message="음성 구간 수집 중입니다." if recording else "실시간 입력을 듣는 중입니다.",
+                status="recording_segment" if any(s["recording"] for s in side_state.values()) else "listening",
+                message="음성 구간 수집 중입니다." if any(s["recording"] for s in side_state.values()) else "실시간 입력을 듣는 중입니다.",
             )
 
-            if pending_analysis and pending_analysis.done():
-                try:
-                    pending_analysis.result()
-                finally:
-                    pending_analysis = None
+            for side, data, features in (
+                ("left", left_data, left_features),
+                ("right", right_data, right_features),
+            ):
+                state = side_state[side]
+                if state["pending"] and state["pending"].done():
+                    try:
+                        state["pending"].result()
+                    finally:
+                        state["pending"] = None
 
-            volume = backend.analyze_audio_volume(data)
-            if backend.should_collect_live_segment(volume, features):
-                if not recording:
-                    frames = []
-                    recording = True
-                frames.append(data.copy())
-                silence_start_time = None
-            elif recording:
-                frames.append(data.copy())
-                if silence_start_time is None:
-                    silence_start_time = now
-                elif now - silence_start_time > backend.SILENCE_LIMIT:
-                    filepath = save_live_segment(frames)
-                    frames = []
-                    recording = False
-                    silence_start_time = None
-                    if filepath and pending_analysis is None:
-                        pending_analysis = analysis_executor.submit(analyze_live_segment, filepath)
-                    elif filepath:
-                        set_live(message="이전 문장 분석 중이라 이번 구간은 저장만 했습니다.")
+                other_features = right_features if side == "left" else left_features
+                volume = backend.analyze_audio_volume(data)
+                owns_voice = side_owns_current_voice(side, features, other_features)
+                should_collect = backend.should_collect_live_segment(volume, features) and owns_voice
+                if should_collect:
+                    if not state["recording"]:
+                        state["frames"] = []
+                        state["recording"] = True
+                    state["frames"].append(data.copy())
+                    state["silence_start_time"] = None
+                elif state["recording"]:
+                    state["frames"].append(data.copy())
+                    if state["silence_start_time"] is None:
+                        state["silence_start_time"] = now
+                    elif now - state["silence_start_time"] > backend.SILENCE_LIMIT:
+                        filepath = save_live_segment(state["frames"], side=side)
+                        state["frames"] = []
+                        state["recording"] = False
+                        state["silence_start_time"] = None
+                        if filepath and state["pending"] is None:
+                            state["pending"] = analysis_executor.submit(analyze_live_segment, filepath, side)
+                        elif filepath:
+                            set_live(message=f"{side} 이전 문장 분석 중이라 이번 구간은 저장만 했습니다.")
 
         set_live(running=False, status="stopped", message="실시간 정지됨")
     except Exception as exc:
@@ -426,12 +515,20 @@ def live_worker():
             result={"traceback": traceback.format_exc()},
         )
     finally:
-        if stream is not None:
+        if left_stream is not None:
             try:
-                stream.stop()
-                stream.close()
+                left_stream.stop()
+                left_stream.close()
             except Exception:
                 pass
+        if right_stream is not None:
+            try:
+                right_stream.stop()
+                right_stream.close()
+            except Exception:
+                pass
+        if "mic_executor" in locals():
+            mic_executor.shutdown(wait=False, cancel_futures=True)
         analysis_executor.shutdown(wait=False, cancel_futures=True)
 
 

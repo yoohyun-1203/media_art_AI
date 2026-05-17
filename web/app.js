@@ -4,14 +4,17 @@ const liveStartButton = document.querySelector("#liveStartButton");
 const liveStopButton = document.querySelector("#liveStopButton");
 const statusText = document.querySelector("#statusText");
 const liveStatusText = document.querySelector("#liveStatusText");
-const transcript = document.querySelector("#transcript");
-const emotion = document.querySelector("#emotion");
-const valence = document.querySelector("#valence");
-const arousal = document.querySelector("#arousal");
+const leftTranscript = document.querySelector("#leftTranscript");
+const leftEmotion = document.querySelector("#leftEmotion");
+const leftValence = document.querySelector("#leftValence");
+const leftArousal = document.querySelector("#leftArousal");
+const rightTranscript = document.querySelector("#rightTranscript");
+const rightEmotion = document.querySelector("#rightEmotion");
+const rightValence = document.querySelector("#rightValence");
+const rightArousal = document.querySelector("#rightArousal");
 const liveArousal = document.querySelector("#liveArousal");
 const arousalConfidence = document.querySelector("#arousalConfidence");
 const valenceConfidence = document.querySelector("#valenceConfidence");
-const rgb = document.querySelector("#rgb");
 const raw = document.querySelector("#raw");
 const controllerPreviewSummary = document.querySelector("#controllerPreviewSummary");
 const controllerValueSummary = document.querySelector("#controllerValueSummary");
@@ -304,20 +307,21 @@ function renderResult(result) {
     return;
   }
 
-  transcript.textContent = result.transcript || "분석된 문장이 없습니다.";
-  emotion.textContent = result.emotion_word
-    ? `${result.emotion_word} · ${result.color_name}`
-    : "-";
-  valence.textContent = fmt(result.td_valence);
-  arousal.textContent = fmt(result.td_arousal);
-  valenceConfidence.textContent = fmt(result.valence_confidence);
-
-  const r = tdValue(result, "/project1/RGBs", "r");
-  const g = tdValue(result, "/project1/RGBs", "g");
-  const b = tdValue(result, "/project1/RGBs", "b");
-  rgb.textContent = [r, g, b].some((item) => item !== undefined)
-    ? `${fmt(r)}, ${fmt(g)}, ${fmt(b)}`
-    : "-";
+  const left = result.left || (!result.right ? result : null);
+  const right = result.right || null;
+  const renderSide = (sideResult, transcriptNode, emotionNode, valenceNode, arousalNode) => {
+    transcriptNode.textContent = sideResult?.transcript || "아직 분석 결과가 없습니다.";
+    emotionNode.textContent = sideResult?.emotion_word
+      ? `${sideResult.emotion_word} · ${sideResult.color_name}`
+      : "-";
+    valenceNode.textContent = fmt(sideResult?.td_valence);
+    arousalNode.textContent = fmt(sideResult?.td_arousal);
+  };
+  renderSide(left, leftTranscript, leftEmotion, leftValence, leftArousal);
+  renderSide(right, rightTranscript, rightEmotion, rightValence, rightArousal);
+  valenceConfidence.textContent = fmt(
+    Math.max(left?.valence_confidence || 0, right?.valence_confidence || 0),
+  );
 
   raw.textContent = JSON.stringify(result, null, 2);
   renderLedPreviewFromState({ result });

@@ -122,6 +122,20 @@ class LiveAudioFeatureTests(unittest.TestCase):
         send_message.assert_any_call("/emotion/arousal", 0.35)
         send_message.assert_any_call("/emotion/valence", -0.45)
 
+    def test_send_live_osc_can_emit_independent_left_right_channels(self):
+        with mock.patch.object(main.osc_client, "send_message") as send_message:
+            main.send_live_osc(
+                left_arousal_live=0.8,
+                right_arousal_live=-0.4,
+                left_valence_target=0.6,
+                right_valence_target=-0.5,
+            )
+
+        send_message.assert_any_call("/emotion/left_arousal_live", 0.8)
+        send_message.assert_any_call("/emotion/right_arousal_live", -0.4)
+        send_message.assert_any_call("/emotion/left_valence_target", 0.6)
+        send_message.assert_any_call("/emotion/right_valence_target", -0.5)
+
     def test_import_does_not_initialize_ai_clients(self):
         env = os.environ.copy()
         env["MEDIA_ART_LOAD_DOTENV"] = "0"

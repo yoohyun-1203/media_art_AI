@@ -78,6 +78,26 @@ class LiveSignalCompositionTests(unittest.TestCase):
         self.assertIs(result, signal)
 
 
+class SideOwnershipTests(unittest.TestCase):
+    def test_quieter_side_does_not_claim_voice_when_other_side_is_clearly_stronger(self):
+        self.assertFalse(
+            web_app.side_owns_current_voice(
+                "left",
+                {"arousal_confidence": 0.25},
+                {"arousal_confidence": 0.80},
+            )
+        )
+
+    def test_side_can_claim_voice_when_it_is_stronger(self):
+        self.assertTrue(
+            web_app.side_owns_current_voice(
+                "right",
+                {"arousal_confidence": 0.80},
+                {"arousal_confidence": 0.25},
+            )
+        )
+
+
 class VirtualMicWebTests(unittest.TestCase):
     def test_run_virtual_mic_scenario_updates_latest_frame_and_result(self):
         fake_frame = web_app.virtual_mic_scenarios.VirtualMicFrame(
